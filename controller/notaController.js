@@ -4,6 +4,7 @@ const { v4: uuidv4 } = require("uuid");
 const { getOrders, saveOrders } = require("./orderController");
 const { getPembayarans, savePembayaran } = require("./pembayaranController");
 const { log, error } = require("console");
+const { Nota } = require("../model/model");
 
 const dataPath = path.join("database-json", "nota.json");
 const dataPathUser = path.join("database-json", "users.json");
@@ -99,27 +100,27 @@ const addNota = async (req, res) => {
 // Get Semua Data Nota
 const getNotasAll = async (req, res) => {
   try {
-    const notas = getNotas(); // Fungsi ini harus mengembalikan array objek nota dari suatu sumber
-    if (notas.length < 1) {
-      return res.json({ msg: "Data Nota kosong", data: notas });
-    }
-
-    const users = await getUsers(); // Mendapatkan data pengguna secara asynchronous
-    notas.forEach((nota) => {
-      const user = users.find((user) => user.id === nota.klien_id);
-      if (user) {
-        nota.user = user; // Menambahkan parameter user ke setiap nota
-        delete nota.klien_id;
-      }
+    const dataNota = await Nota.aggregate([
+      {
+        $lookup: {
+          from: "users",
+          localField: "user_id",
+          foreignField: "_id",
+          as: "user",
+        },
+      },
+    ]);
+    return res.status(200).json({
+      status: "Success",
+      data: dataNota,
     });
-
-    res.json({
-      msg: "Berhasil Mendapatkan Data Nota dengan Pengguna",
-      data: notas,
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      status: "Failed",
+      message: "Something went wrong",
+      error: error,
     });
-  } catch (err) {
-    console.error("Error:", err);
-    res.status(500).json({ error: "Gagal memuat data" });
   }
 };
 

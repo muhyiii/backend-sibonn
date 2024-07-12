@@ -4,9 +4,8 @@ const { getNotas } = require("./notaController");
 const dataPath = path.join("database-json", "pembayaran.json");
 
 // Helper functions
-const getPembayarans = () => {
-  const data = fs.readFileSync(dataPath);
-  return JSON.parse(data);
+const getPembayarans = (req, res) => {
+ 
 };
 // Save data
 const savePembayaran = (notas) => {

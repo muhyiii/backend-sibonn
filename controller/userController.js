@@ -61,6 +61,12 @@ const getUsersAll = async (req, res) => {
 const addUser = async (req, res) => {
   try {
     const body = req.body;
+    const validationError = validateUser(body);
+    if (validationError) {
+      return res
+        .status(404)
+        .json({ status: "Failed", message: validationError });
+    }
     const result = await User.create(body);
     return res.status(200).json({
       status: "Success",
