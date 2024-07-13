@@ -4,7 +4,8 @@ const { v4: uuidv4 } = require("uuid");
 const { getOrders, saveOrders } = require("./orderController");
 const { getPembayarans, savePembayaran } = require("./pembayaranController");
 const { log, error } = require("console");
-const { Nota } = require("../model/model");
+const { Nota, User, Order, Pembayaran } = require("../model/model");
+const { default: mongoose } = require("mongoose");
 
 const dataPath = path.join("database-json", "nota.json");
 const dataPathUser = path.join("database-json", "users.json");
@@ -33,65 +34,141 @@ const saveNotas = (notas) => {
 // Tambah Nota Baru
 const addNota = async (req, res) => {
   try {
-    const dataNota = getNotas();
-    const ordersData = await getOrders();
-    const pembayaranData = await getPembayarans();
-    const { orders, pembayaran, ...newNota } = req.body;
-    // console.log(newNota);
+    // const dataNota = getNotas();
+    // const ordersData = await getOrders();
+    // const pembayaranData = await getPembayarans();
+    // const { orders, pembayaran, ...newNota } = req.body;
+    // console.log(orders);
+    // // console.log(newNota);
 
-    if (newNota.nota_no && newNota.klien_id && newNota.pekerjaan) {
-      while (dataNota.find((data) => data.nota_no === newNota.nota_no)) {
-        let no_nota = parseInt(newNota.nota_no);
-        no_nota++;
-        newNota.nota_no = `${no_nota}`;
-      }
-      newNota.status = "belum_lunas";
-      newNota.terakhir_edit = "";
-      dataNota.push(newNota);
-      console.log(newNota);
-      saveNotas(dataNota);
-    }
+    // if (newNota.nota_no && newNota.klien_id && newNota.pekerjaan) {
+    //   while (dataNota.find((data) => data.nota_no === newNota.nota_no)) {
+    //     let no_nota = parseInt(newNota.nota_no);
+    //     no_nota++;
+    //     newNota.nota_no = `${no_nota}`;
+    //   }
+    //   newNota.status = "belum_lunas";
+    //   newNota.terakhir_edit = "";
+    //   dataNota.push(newNota);
+    //   console.log(newNota);
+    //   saveNotas(dataNota);
+    // }
 
-    if (orders.length > 0) {
-      orders.forEach((order) => {
-        if (order.deskripsi && order.jumlah && order.harga) {
-          order.order_id = uuidv4();
-          order.nota_no = newNota.nota_no;
-          order.total = parseInt(order.jumlah) * parseInt(order.harga);
-          ordersData.push(order);
-          saveOrders(ordersData);
-        }
+    // if (orders.length > 0) {
+    //   orders.forEach((order) => {
+    //     if (order.deskripsi && order.jumlah && order.harga) {
+    //       order.order_id = uuidv4();
+    //       order.nota_no = newNota.nota_no;
+    //       order.total = parseInt(order.jumlah) * parseInt(order.harga);
+    //       ordersData.push(order);
+    //       saveOrders(ordersData);
+    //     }
+    //   });
+    // }
+    // if (pembayaran !== null) {
+    //   if (pembayaran?.jumlah_bayar && pembayaran.tipe_pembayaran) {
+    //     pembayaran.pembayaran_id = uuidv4();
+    //     pembayaran.nota_no = newNota.nota_no;
+    //     pembayaran.tanggal_bayar = new Date();
+    //     pembayaran.sisa =
+    //       parseInt(newNota.total) - parseInt(pembayaran.jumlah_bayar);
+    //     pembayaranData.push(bayar);
+    //     savePembayaran(pembayaranData);
+    //   }
+    // }
+
+    // const newDataNota = dataNota.find(
+    //   (data) => data.nota_no == newNota.nota_no
+    // );
+    // console.log("[[[[[[[[[[[[[[[[[");
+
+    // console.log(newDataNota);
+    // if (newDataNota)
+    //   return res
+    //     .status(201)
+    //     .json({ msg: "Berhasil Menambah Data Nota Baru", data: newDataNota });
+    // else {
+    //   res.status(500).json({ error: "Gagal memuat data" });
+    //   console.log("kesalahan");
+    // }
+    const ObjectId = mongoose.Types.ObjectId;
+
+    const { nota, orders, pembayaran } = req.body;
+    // console.log(nota, orders, pembayaran);
+    // console.log(body);
+    const check_user = await User.findOne({ _id: new ObjectId(nota.user_id) });
+    // console.log(check_user);
+    if (!check_user) {
+      return res.status(404).json({
+        status: "Failed",
+        message: "User's not found",
       });
     }
-    if (pembayaran !== null) {
-      if (pembayaran?.jumlah_bayar && pembayaran.tipe_pembayaran) {
-        pembayaran.pembayaran_id = uuidv4();
-        pembayaran.nota_no = newNota.nota_no;
-        pembayaran.tanggal_bayar = new Date();
-        pembayaran.sisa =
-          parseInt(newNota.total) - parseInt(pembayaran.jumlah_bayar);
-        pembayaranData.push(bayar);
-        savePembayaran(pembayaranData);
+    const newNota = await Nota.create({
+      user_id: nota.user_id,
+      pekerjaan: nota.pekerjaan,
+      tanggal_order: nota.tanggal_order,
+      total: nota.total,
+    });
+
+    if (orders.length != 0) {
+      // console.log("HAI");
+      const newOrder = orders.map((order) => ({
+        ...order,
+        nota_id: newNota._id,
+        total: order.jumlah * order.harga,
+      }));
+      // console.log(newOrder);
+      const result = await Order.insertMany(newOrder);
+      const notaTotal = newOrder.reduce((sum, order) => sum + order.total, 0);
+      console.log(notaTotal);
+      const updatedNota = await Nota.findOneAndUpdate(
+        { nota_id: newOrder.nota_id },
+        { total: notaTotal }
+      );
+      // return console.log(updatedNota.total);
+      console.log(pembayaran.length);
+      if (pembayaran && Object.keys(pembayaran).length > 0) {
+        await Pembayaran.create({
+          nota_id: newNota._id,
+          tanggal_bayar: new Date(),
+          jumlah_bayar: pembayaran.jumlah_bayar,
+          sisa: updatedNota.total - parseInt(pembayaran.jumlah_bayar),
+        });
       }
     }
 
-    const newDataNota = dataNota.find(
-      (data) => data.nota_no == newNota.nota_no
-    );
-    console.log("[[[[[[[[[[[[[[[[[");
-
-    console.log(newDataNota);
-    if (newDataNota)
-      return res
-        .status(201)
-        .json({ msg: "Berhasil Menambah Data Nota Baru", data: newDataNota });
-    else {
-      res.status(500).json({ error: "Gagal memuat data" });
-      console.log("kesalahan");
-    }
+    const data = await Nota.aggregate([
+      {
+        $match: {
+          _id: new ObjectId(newNota._id),
+        },
+      },
+      {
+        $lookup: {
+          from: "orders",
+          localField: "_id",
+          foreignField: "nota_id",
+          as: "order",
+        },
+      },
+      {
+        $lookup: {
+          from: "pembayarans",
+          localField: "_id",
+          foreignField: "nota_id",
+          as: "pembayaran",
+        },
+      },
+    ]);
+    return res.status(200).json({
+      status: "Success",
+      data: data,
+    });
   } catch (error) {
     console.log(error);
-    res.status(400).json({
+    return res.status(400).json({
+      status: "Failed",
       msg: error,
     });
   }
@@ -127,47 +204,47 @@ const getNotasAll = async (req, res) => {
 // Get Nota Detail Berdasarkan Id
 const getNotaById = async (req, res) => {
   try {
-    const { nota_no } = req.params;
-    const users = getUsers();
-    const notas = getNotas();
-    if (notas.length < 1) {
-      return res.json({ msg: "Data Klien kosong", data: notas });
+    const ObjectId = mongoose.Types.ObjectId;
+    const { id } = req.params;
+    const dataNota = await Nota.aggregate([
+      {
+        $match: {
+          _id: new ObjectId(id),
+        },
+      },
+      {
+        $lookup: {
+          from: "orders",
+          localField: "_id",
+          foreignField: "nota_id",
+          as: "order",
+        },
+      },
+      {
+        $lookup: {
+          from: "pembayarans",
+          localField: "_id",
+          foreignField: "nota_id",
+          as: "pembayaran",
+        },
+      },
+    ]);
+    console.log(dataNota.length == 0);
+    if (dataNota.length == 0) {
+      return res.status(404).json({
+        status: "Failed",
+        message: "Data Nota Tidak Ditemukan",
+      });
     }
-    const orders = await getOrders();
-    const pembayarans = await getPembayarans();
-
-    const newNota = notas.find((nota) => nota.nota_no === nota_no);
-    if (newNota) {
-      const user = users.find((user) => user.id === newNota.klien_id);
-      newNota.user = user;
-      delete newNota.klien_id;
-    }
-
-    const filterOrders = orders.filter(
-      (order) => order.nota_no === newNota?.nota_no
-    );
-    const filterPembayarans = pembayarans.filter(
-      (cicilan) => cicilan.nota_no === newNota.nota_no
-    );
-    if (filterOrders.length > 0) {
-      newNota.orders = filterOrders;
-    } else {
-      newNota.orders = [];
-    }
-
-    if (filterPembayarans.length > 0) {
-      newNota.pembayarans = filterPembayarans;
-    } else {
-      newNota.pembayarans = [];
-    }
-
-    res.json({
-      msg: "Berhasil Mendapatkan Data Nota",
-      data: newNota,
+    return res.status(200).json({
+      status: "Success",
+      data: dataNota,
     });
   } catch (err) {
     console.error("Error:", err);
-    res.status(500).json({ error: "Gagal memuat data" });
+    return res
+      .status(500)
+      .json({ status: "Failed", message: "Gagal memuat data", error: err });
   }
 };
 
