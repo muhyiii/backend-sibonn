@@ -2,6 +2,8 @@ const fs = require("fs");
 const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const { getNotas } = require("./notaController");
+const { User } = require("../model/model");
+const { default: mongoose } = require("mongoose");
 const dataPath = path.join("database-json", "users.json");
 
 // Helper functions
@@ -39,95 +41,153 @@ const validateUser = (user) => {
 
 // Get Semua Data User
 const getUsersAll = async (req, res) => {
-  const users = getUsers();
-  const notas = await getNotas();
-  if (users.length < 1) {
-    return res.json({ msg: "Data Klien kosong", data: users });
+  try {
+    const data = await User.find();
+    return res.status(200).json({
+      status: "Success",
+      data: data,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      status: "Failed",
+      message: "Something went wrong",
+      error: error,
+    });
   }
-
-  // Mapping user data with their corresponding notas
-  const usersWithNotas = users.map((user) => {
-    return {
-      ...user,
-      notas: notas.filter((nota) => nota.klien_id === user.id).length,
-    };
-  });
-  res.json({
-    msg: "Berhasil Mendapatkan Data Klien",
-    data: usersWithNotas,
-  });
 };
 
 // Tambah User Baru
 const addUser = async (req, res) => {
-  const users = getUsers();
-  const newUser = req.body;
-  newUser.id = uuidv4();
-  const validationError = validateUser(newUser);
-  if (validationError) {
-    return res.status(400).json({ error: validationError });
+  try {
+    const body = req.body;
+    const validationError = validateUser(body);
+    if (validationError) {
+      return res
+        .status(404)
+        .json({ status: "Failed", message: validationError });
+    }
+    const result = await User.create(body);
+    return res.status(200).json({
+      status: "Success",
+      data: result,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      status: "Failed",
+      message: "Something went wrong",
+      error: error,
+    });
   }
-  users.push(newUser);
-  saveUsers(users);
-  res
-    .status(201)
-    .json({ msg: "Berhasil Menambah Data Klien Baru", data: newUser });
 };
 
 // Get User Berdasarkan Id dan Notanya
-const getUserWithNotas = async (userId) => {
+const getUserWithNotas = async (req, res) => {
   try {
-    const users = await getUsers(); // Mendapatkan data pengguna secara asynchronous
-    const notas = getNotas(); // Fungsi ini harus mengembalikan array objek nota dari suatu sumber
+    // const users = await getUsers(); // Mendapatkan data pengguna secara asynchronous
+    // const notas = getNotas(); // Fungsi ini harus mengembalikan array objek nota dari suatu sumber
 
-    const user = users.find((user) => user.id === userId);
-    if (user) {
-      user.notas = notas.filter((nota) => nota.klien_id === user.id); // Menambahkan parameter nota ke user
-      return user;
-    } else {
-      throw new Error("User tidak ditemukan");
-    }
+    // const user = users.find((user) => user.id === userId);
+    // if (user) {
+    //   user.notas = notas.filter((nota) => nota.klien_id === user.id); // Menambahkan parameter nota ke user
+    //   return user;
+    // } else {
+    //   throw new Error("User tidak ditemukan");
+    // }
+    const ObjectId = mongoose.Types.ObjectId;
+
+    const { id } = req.params;
+    const user = await User.aggregate([
+      {
+        $match: {
+          _id: new ObjectId(id),
+        },
+      },
+      {
+        $lookup: {
+          from: "notas",
+          localField: "_id",
+          foreignField: "user_id",
+          as: "nota",
+        },
+      },
+    ]);
+
+    return res.status(200).json({
+      status: "Success",
+      data: user,
+    });
   } catch (err) {
     console.error("Error:", err);
-    throw new Error("Gagal memuat data");
+    return res.status(500).json({
+      status: "Failed",
+      message: "Something went wrong",
+      error: err,
+    });
   }
 };
 
 // Get User Fungsi Utama
 const getUserById = async (req, res) => {
   try {
+    const ObjectId = mongoose.Types.ObjectId;
+
     const userId = req.params.id; // Mendapatkan ID dari parameter request
-    const userWithNotas = await getUserWithNotas(userId);
-    res.json({
-      msg: "Berhasil Mendapatkan Data User dengan Nota",
-      data: userWithNotas,
+    const user = await User.findOne({ _id: new ObjectId(userId) });
+    if (!user) {
+      return res.status(404).json({
+        status: "Failed",
+        message: "User's not found",
+      });
+    }
+    return res.status(200).json({
+      status: "Success",
+      data: user,
     });
   } catch (err) {
     console.error("Error:", err);
-    res.status(500).json({ error: "Gagal memuat data" });
+    return res
+      .status(500)
+      .json({ status: "Failed", message: "Something went wrong", error: err });
   }
 };
 
 // Update User Berdasarkan Id
 const updateUser = async (req, res) => {
-  const users = getUsers();
-  const id = req.params.id;
-  const userIndex = users.findIndex((u) => u.id === id);
+  try {
+    const ObjectId = mongoose.Types.ObjectId;
 
-  if (userIndex !== -1) {
-    const updatedUser = {
-      ...users[userIndex],
-      nama: req.body.nama || users[userIndex].nama,
-      noTelp: req.body.noTelp || users[userIndex].noTelp,
-    };
-    users[userIndex] = updatedUser;
-    saveUsers(users);
-    res.json({ msg: `Berhasil Mengupdate Data Klien` });
-  } else {
-    return res
-      .status(404)
-      .json({ error: `Klien Dengan Id ${id} Tidak Ditemukan` });
+    const { id } = req.params;
+    const { nama, noTelp } = req.body;
+    const user = await User.findOne({ _id: ObjectId(id) });
+    if (!user) {
+      return res.status(404).json({
+        status: "Failed",
+        message: "User's not found",
+      });
+    }
+    await User.updateOne(
+      { _id: ObjectId(id) },
+      {
+        $set: {
+          nama: nama,
+          noTelp: noTelp,
+        },
+      }
+    );
+
+    return res.status(200).json({
+      status: "Success",
+      message: "User's updated successfully",
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      status: "Failed",
+      message: "Something went wrong",
+      error: error,
+    });
   }
 };
-
 module.exports = { getUsers, getUsersAll, getUserById, addUser, updateUser };

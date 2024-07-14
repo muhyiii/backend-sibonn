@@ -1,6 +1,9 @@
+require("dotenv").config();
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
+const mongoose = require("mongoose");
+const uri = process.env.DB_HOST;
 const app = express();
 const port = 1234;
 const cors = require("cors");
@@ -19,41 +22,39 @@ const {
   updatePembayaran,
   deleteNotaAndData,
 } = require("./controller/notaController");
+const { User, Order, Pembayaran, Nota } = require("./model/model");
 app.use(express.json());
 app.use(cors());
 app.use(express.json());
 
+mongoose
+  .connect(uri, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => {
+    console.log("MongoDB connected successfully");
+  })
+  .catch((error) => {
+    console.error("MongoDB connection error:", error);
+  });
+
 app.get("/", (req, res) => {
   res.json({
-    msg:'Berhasil masuk ke API Sibonn'
+    msg: "Berhasil masuk ke API Sibonn",
   });
 });
 
-app.get("/reset-data-backend", (req, res) => {
-  const userPath = path.join("database-json", "users.json");
-  const orderPath = path.join("database-json", "order.json");
-  const pembayaranPath = path.join("database-json", "pembayaran.json");
-  const notaPath = path.join("database-json", "nota.json");
+app.get("/reset-data-backend", async (req, res) => {
+  await User.deleteMany({});
+  await Order.deleteMany({});
+  await Pembayaran.deleteMany({});
+  await Nota.deleteMany({});
 
-  // Check if file exists and delete if it does
-  if (
-    fs.existsSync(userPath) ||
-    fs.existsSync(orderPath) ||
-    fs.existsSync(pembayaranPath) ||
-    fs.existsSync(notaPath)
-  ) {
-    fs.existsSync(userPath);
-    fs.existsSync(orderPath);
-    fs.existsSync(pembayaranPath);
-    fs.existsSync(notaPath);
-  }
-
-  // Create a new empty JSON file
-  fs.writeFileSync(userPath, JSON.stringify([]), "utf8");
-  fs.writeFileSync(orderPath, JSON.stringify([]), "utf8");
-  fs.writeFileSync(pembayaranPath, JSON.stringify([]), "utf8");
-  fs.writeFileSync(notaPath, JSON.stringify([]), "utf8");
-  res.send("Backend reset");
+  res.statusCode(200).json({
+    status: "Success",
+    message: "Databases reset",
+  });
 });
 
 // USER / KLIEN
