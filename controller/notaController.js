@@ -109,6 +109,7 @@ const addNota = async (req, res) => {
       pekerjaan: nota.pekerjaan,
       tanggal_order: nota.tanggal_order,
       total: nota.total,
+      
     });
 
     if (orders.length != 0) {
