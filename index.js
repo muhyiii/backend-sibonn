@@ -21,6 +21,7 @@ const {
   updateNota,
   updatePembayaran,
   deleteNotaAndData,
+  deleteOrder,
 } = require("./controller/notaController");
 const { User, Order, Pembayaran, Nota } = require("./model/model");
 app.use(express.json());
@@ -79,6 +80,8 @@ app.put("/notas/update/:id", updateNota);
 // Update - Perbarui pembayaran
 app.put("/notas/update-pembayaran/:id", updatePembayaran);
 // Delete - Hapus data nota, order dan pembayaran
+// app.delete("/notas/delete-order/:id", deleteOrder)
+
 app.delete("/notas/delete-data/:id", deleteNotaAndData);
 
 app.listen(port, () => {

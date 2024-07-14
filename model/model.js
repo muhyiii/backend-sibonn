@@ -83,6 +83,7 @@ const pembayaranSchema = mongoose.Schema({
   },
   tipe_pembayaran: {
     type: Number,
+    default : 0,
     max: 1,
   },
 });
