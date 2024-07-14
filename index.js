@@ -21,6 +21,7 @@ const {
   updateNota,
   updatePembayaran,
   deleteNotaAndData,
+  deleteOrder,
 } = require("./controller/notaController");
 const { User, Order, Pembayaran, Nota } = require("./model/model");
 app.use(express.json());
@@ -71,15 +72,17 @@ app.put("/users/update/:id", updateUser);
 // Read - Dapatkan semua nota
 app.get("/notas", getNotasAll);
 // Read - Dapatkan nota berdasarkan nomor nota
-app.get("/notas/:nota_no", getNotaById);
+app.get("/notas/:id", getNotaById);
 // Create - Tambah nota, order dan pembayaran jika ada
 app.post("/notas/tambah", addNota);
 // Update - Perbarui pekerjaan dan Order
-app.put("/notas/update/:nota_no", updateNota);
+app.put("/notas/update/:id", updateNota);
 // Update - Perbarui pembayaran
-app.put("/notas/update-pembayaran/:nota_no", updatePembayaran);
+app.put("/notas/update-pembayaran/:id", updatePembayaran);
 // Delete - Hapus data nota, order dan pembayaran
-app.delete("/notas/delete-data/:nota_no", deleteNotaAndData);
+// app.delete("/notas/delete-order/:id", deleteOrder)
+
+app.delete("/notas/delete-data/:id", deleteNotaAndData);
 
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
