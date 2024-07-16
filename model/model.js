@@ -14,10 +14,14 @@ const userSchema = mongoose.Schema({
 
 const notaSchema = mongoose.Schema(
   {
+    no_nota: {
+      type: Number,
+      unique: true
+    },
     user_id: {
       type: ObjectId,
       required: true,
-      ref : "users"
+      ref: "users",
     },
     pekerjaan: {
       type: String,
@@ -83,9 +87,28 @@ const pembayaranSchema = mongoose.Schema({
   },
   tipe_pembayaran: {
     type: Number,
-    default : 0,
+    default: 0,
     max: 1,
   },
+});
+
+
+notaSchema.pre('save', async function (next) {
+  try {
+    if (!this.isNew) {
+      return next();
+    }
+
+    // Find the highest no_nota value in existing documents
+    const highestNota = await this.constructor.findOne({}, {}, { sort: { no_nota: -1 } });
+
+    // Set the new no_nota value
+    this.no_nota = highestNota ? highestNota.no_nota + 1 : 1;
+
+    next();
+  } catch (error) {
+    next(error);
+  }
 });
 
 const User = mongoose.model("users", userSchema);
